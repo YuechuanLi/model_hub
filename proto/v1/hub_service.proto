@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package v1;
+
+service HubService {
+  // Register a new model repository
+  rpc RegisterModel(RegisterModelRequest) returns (ModelRepo);
+  
+  // List available models
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
+}
+
+message RegisterModelRequest {
+  string vendor = 1;
+  string name = 2;
+  string source_repo_id = 3; // e.g. "Wan-AI/Wan2.1-T2V-1.3B"
+}
+
+message ListModelsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListModelsResponse {
+  repeated ModelRepo models = 1;
+  int32 total_count = 2;
+}
+
+message ModelRepo {
+  string id = 1;
+  string vendor = 2;
+  string name = 3;
+  string source = 4;
+  string repo_id = 5;
+  string status = 6; // registered, synced, error
+}
