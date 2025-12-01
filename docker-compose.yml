@@ -38,7 +38,7 @@ services:
       - ./docker/signoz/clickhouse-config.xml:/etc/clickhouse-server/config.d/cluster.xml
 
   schema-migrator:
-    image: signoz/signoz-schema-migrator:0.88.10
+    image: signoz/migrate:0.55
     container_name: signoz-schema-migrator
     depends_on:
       - clickhouse
@@ -49,7 +49,7 @@ services:
     command: [ "--dsn=tcp://clickhouse:9000" ]
 
   query-service:
-    image: signoz/query-service:0.45.0
+    image: signoz/query-service:0.55.0
     command: [ "-config=/root/config/prometheus.yml" ]
     ports:
       - "8080:8080"
@@ -64,7 +64,7 @@ services:
       - ./docker/signoz/data:/var/lib/signoz
 
   frontend:
-    image: signoz/frontend:0.45.0
+    image: signoz/frontend:0.55.0
     ports:
       - "3301:3301"
     depends_on:
