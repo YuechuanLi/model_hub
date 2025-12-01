@@ -48,7 +48,7 @@ services:
       - CLICKHOUSE_CLUSTER=cluster
     command: [ "--dsn=tcp://clickhouse:9000" ]
 
-  signoz-query-service:
+  query-service:
     image: signoz/query-service:0.45.0
     command: [ "-config=/root/config/prometheus.yml" ]
     ports:
@@ -59,7 +59,7 @@ services:
       - GIGABYTE_INGESTION_LIMIT=10
     depends_on:
       - clickhouse
-      - signoz-otel-collector
+      - otel-collector
     volumes:
       - ./docker/signoz/data:/var/lib/signoz
 
@@ -68,9 +68,11 @@ services:
     ports:
       - "3301:3301"
     depends_on:
-      - signoz-query-service
+      - query-service
+    volumes:
+      - ./docker/signoz/nginx-frontend.conf:/etc/nginx/conf.d/default.conf
 
-  signoz-otel-collector:
+  otel-collector:
     image: signoz/signoz-otel-collector:0.88.10
     command: [ "--config=/etc/otel-collector-config.yaml" ]
     volumes:
