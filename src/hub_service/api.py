@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from typing import List
 
 from src.common.db import get_session
-from src.common.models import ModelRepo, Job, JobType, JobStatus, RepoStatus
-from src.hub_service.schemas import RegisterModelRequest, ListModelsResponse
+from src.common.models import Job, ModelRepo, RepoStatus
+from src.hub_service.schemas import ListModelsResponse, RegisterModelRequest
 
 router = APIRouter()
 
@@ -65,7 +64,7 @@ async def sync_model(repo_id: str, session: AsyncSession = Depends(get_session))
 
 @router.post("/download")
 async def download_model(
-    repo_id: str, file_paths: List[str], session: AsyncSession = Depends(get_session)
+    repo_id: str, file_paths: list[str], session: AsyncSession = Depends(get_session)
 ):
     # TODO: Implement download logic
     return {"status": "queued", "job_id": "fake-job-id"}

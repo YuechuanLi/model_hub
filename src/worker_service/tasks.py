@@ -1,5 +1,4 @@
 import asyncio
-from src.common.config import settings
 
 
 async def sync_repo_metadata(ctx, repo_id: str):

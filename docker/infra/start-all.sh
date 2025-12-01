@@ -3,7 +3,7 @@ set -e
 
 # Start Redis in background
 echo "Starting Redis..."
-redis-server --daemonize yes --bind 0.0.0.0
+redis-server --daemonize yes --bind 0.0.0.0 --protected-mode no
 
 # Hand over to the original Postgres entrypoint
 echo "Starting Postgres..."

@@ -1,5 +1,7 @@
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
 from src.common.db import engine
 from src.hub_service.api import router as hub_router
 
@@ -7,7 +9,7 @@ from src.hub_service.api import router as hub_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create tables (for now, usually use Alembic)
-    async with engine.begin() as conn:
+    async with engine.begin():
         # await conn.run_sync(SQLModel.metadata.create_all)
         pass
     yield

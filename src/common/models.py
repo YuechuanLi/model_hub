@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import Optional, Any, Dict
-from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import JSON
 from enum import Enum
+from typing import Any
+
+from sqlalchemy import JSON
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class RepoStatus(str, Enum):
@@ -62,10 +63,10 @@ class ModelArtifact(SQLModel, table=True):
     file_path: str  # Relative path in repo
     file_type: ArtifactType = Field(default=ArtifactType.OTHER)
     size_bytes: int = Field(default=0)
-    content_hash: Optional[str] = None
+    content_hash: str | None = None
     download_status: DownloadStatus = Field(default=DownloadStatus.PENDING)
-    local_path: Optional[str] = None
-    last_verified_at: Optional[datetime] = None
+    local_path: str | None = None
+    last_verified_at: datetime | None = None
 
     model_repo: ModelRepo = Relationship(back_populates="artifacts")
 
@@ -76,7 +77,7 @@ class Job(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     type: JobType
     status: JobStatus = Field(default=JobStatus.PENDING)
-    payload: Dict[str, Any] = Field(default={}, sa_type=JSON)
-    logs: Optional[str] = None
+    payload: dict[str, Any] = Field(default={}, sa_type=JSON)
+    logs: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
