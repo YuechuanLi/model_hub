@@ -117,6 +117,7 @@
 
    * Structured logging (JSON).
    * Log sinks: console + file + Modern Logging platform. Currently SigNoz as first choice.
+   * **TODO**: SigNoz log integration is currently not working. Logs are not being properly ingested by SigNoz. This needs investigation and fixing. For now, rely on console/file logging.
    * Metrics scraping: simple /v1/metrics endpoint.
 
 ---

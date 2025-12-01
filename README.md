@@ -50,3 +50,24 @@ Local-first Model Hub for managing ML models.
 -   `src/worker_service`: ARQ worker for background tasks.
 -   `src/common`: Shared models, config, and DB logic.
 -   `proto`: Protocol Buffer definitions.
+
+## Known Issues
+
+### TODO: SigNoz Log Integration
+
+**Issue**: SigNoz log collection is currently not working properly.
+
+**Status**: Known issue, pending investigation and fix.
+
+**Details**:
+- SigNoz services (clickhouse, zookeeper, signoz-unified, otel-collector) are running in docker-compose
+- Metrics and traces may be working, but log ingestion is not functional
+- Application logs are not being properly forwarded to SigNoz
+
+**Workaround**: Use local console/file logging for now.
+
+**Next Steps**:
+1. Verify OTLP log exporter configuration in `otel-collector-config.yaml`
+2. Check application log handler configuration in `src/common/config.py`
+3. Review SigNoz logs for any ingestion errors
+4. Test log forwarding with simple test messages
