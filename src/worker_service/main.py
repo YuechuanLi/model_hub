@@ -1,13 +1,20 @@
 from arq import create_pool
 from arq.connections import RedisSettings
 from src.common.config import settings
-from src.worker_service.tasks import sync_repo_metadata, download_artifact, scan_local_storage
+from src.worker_service.tasks import (
+    sync_repo_metadata,
+    download_artifact,
+    scan_local_storage,
+)
+
 
 async def startup(ctx):
     print("Worker starting up...")
 
+
 async def shutdown(ctx):
     print("Worker shutting down...")
+
 
 class WorkerSettings:
     functions = [sync_repo_metadata, download_artifact, scan_local_storage]

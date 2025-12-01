@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from src.common.db import engine
 from src.hub_service.api import router as hub_router
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create tables (for now, usually use Alembic)
@@ -12,13 +13,11 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
 
-app = FastAPI(
-    title="Model Hub API",
-    version="0.1.0",
-    lifespan=lifespan
-)
+
+app = FastAPI(title="Model Hub API", version="0.1.0", lifespan=lifespan)
 
 app.include_router(hub_router, prefix="/v1/hub", tags=["hub"])
+
 
 @app.get("/health")
 async def health_check():
