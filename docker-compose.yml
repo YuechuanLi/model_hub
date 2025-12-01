@@ -24,7 +24,7 @@ services:
       - ALLOW_ANONYMOUS_LOGIN=yes
       - ZOO_AUTOPURGE_INTERVAL=1
     volumes:
-      - /data/infra/signoz/zookeeper:/bitnami/zookeeper
+      - signoz_zookeeper:/bitnami/zookeeper
 
   clickhouse:
     image: clickhouse/clickhouse-server:25.5.6
@@ -34,7 +34,7 @@ services:
       - "8124:8123"
     volumes:
       - ./docker/signoz/clickhouse-config.xml:/etc/clickhouse-server/config.d/cluster.xml
-      - /data/infra/signoz/clickhouse:/var/lib/clickhouse
+      - signoz_clickhouse:/var/lib/clickhouse
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
     depends_on:
@@ -81,7 +81,7 @@ services:
       schema-migrator:
         condition: service_completed_successfully
     volumes:
-      - /data/infra/signoz/sqlite:/var/lib/signoz
+      - signoz_sqlite:/var/lib/signoz
 
   otel-collector:
     image: signoz/signoz-otel-collector:v0.129.12
@@ -100,3 +100,6 @@ volumes:
   postgres_data:
   redis_data:
   clickhouse_data:
+  signoz_zookeeper:
+  signoz_clickhouse:
+  signoz_sqlite:
