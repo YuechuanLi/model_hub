@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package v1;
+package proto.v1;
 
 service HubService {
   // Register a new model repository
-  rpc RegisterModel(RegisterModelRequest) returns (ModelRepo);
+  rpc RegisterModel(RegisterModelRequest) returns (RegisterModelResponse);
   
   // List available models
   rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
@@ -14,6 +14,10 @@ message RegisterModelRequest {
   string vendor = 1;
   string name = 2;
   string source_repo_id = 3; // e.g. "Wan-AI/Wan2.1-T2V-1.3B"
+}
+
+message RegisterModelResponse {
+  ModelRepo model = 1;
 }
 
 message ListModelsRequest {
