@@ -221,7 +221,8 @@ A Python client library that interacts with our Hub API, configured to point to 
 ### 9.3 Protocol Buffers & gRPC
 *   **Schema Generator**: **Buf**.
     *   *Why Buf?* Modern standard for Protobuf management. Handles linting, breaking change detection, and generation better than raw `protoc`.
-*   **Python Generation**: `grpcio-tools` + `mypy-protobuf` (for type stubs) managed via `buf.gen.yaml`.
+*   **Python Generation**: **betterproto** (v2.0+).
+    *   *Why betterproto?* Generates clean, idiomatic, and fully typed Python dataclasses (async-native) instead of the verbose default `protoc` output. Perfect for modern Python 3.12+ async codebases.
 
 ### 9.4 Observability
 *   **Platform**: **SigNoz**.
@@ -229,9 +230,32 @@ A Python client library that interacts with our Hub API, configured to point to 
 
 ### 9.5 Linting & Code Quality
 *   **Linter & Formatter**: **Ruff**.
-    *   *Rules*: Replace Flake8, Black, isort.
-    *   *Config*: `pyproject.toml`.
-*   **Type Checking**: **Mypy** (Strict mode).
+    *   *Rules*:
+        *   `E`, `W` (pycodestyle)
+        *   `F` (Pyflakes)
+        *   `I` (isort)
+        *   `B` (flake8-bugbear)
+        *   `UP` (pyupgrade)
+        *   `N` (pep8-naming)
+    *   *Config* (`pyproject.toml`):
+        ```toml
+        [tool.ruff]
+        line-length = 88
+        target-version = "py312"
+
+        [tool.ruff.lint]
+        select = ["E", "F", "I", "B", "UP", "N"]
+        ignore = ["E501"] # Line too long (handled by formatter)
+        ```
+*   **Type Checking**: **Mypy**.
+    *   *Config* (`pyproject.toml`):
+        ```toml
+        [tool.mypy]
+        python_version = "3.12"
+        strict = true
+        ignore_missing_imports = true
+        disallow_untyped_defs = true
+        ```
 *   **Pre-commit**: Hooks for `ruff` and `mypy`.
 
 ### 9.6 AI/ML
@@ -249,8 +273,8 @@ We will use **Protocol Buffers (Protobuf)** as the single source of truth for ou
     *   **Why Buf?**: It replaces the complex `protoc` workflow with a simple `buf.yaml`. It provides built-in linting (`buf lint`), breaking change detection (`buf breaking`), and consistent code generation.
 *   **Workflow**:
     1.  Define API/Models in `proto/v1/*.proto`.
-    2.  Use `buf generate` to create Python Pydantic models (via `mypy-protobuf` or similar) and gRPC stubs.
-    3.  FastAPI uses these generated definitions for request/response validation.
+    2.  Use `buf generate` with the `betterproto` plugin to create clean Python dataclasses and async gRPC stubs.
+    3.  FastAPI uses these generated definitions for request/response validation (where applicable) or internal mapping.
 
 ### 10.2 Public API (REST/HTTP)
 **Purpose**: Served to the Admin Website, CLI tools, and external integrations.
