@@ -11,5 +11,10 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    @property
+    def hf_token(self) -> str:
+        """Get HuggingFace token."""
+        return self.HF_TOKEN
+
 
 settings = Settings()
