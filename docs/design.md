@@ -4,7 +4,7 @@
 
 * **Vendor** – logical owner/namespace of the repo, e.g. `Wan-AI`, `meta-llama`, `openai`, `local`.
 * **Model repo** – a repository-like bucket of related files, e.g. `Wan-AI/Wan2.2-Animate-14B`.
-* **Artifact** – a concrete file in a repo (e.g. `model.safetensors`, `diffusion_pytorch_model.bin`, `decoder.gguf`).
+* **Model Artifact** – a concrete file in a repo (e.g. `model.safetensors`, `diffusion_pytorch_model.bin`, `decoder.gguf`).
 * **Logical model** – something you can *run*, e.g. `"wan2.2-animate-14b:text-to-video"`, `"yolo-v8s:object-detection"`.
 * **Runtime** – an engine that can execute a logical model (llama.cpp, PyTorch, TensorRT, etc.).
 
@@ -39,7 +39,7 @@
 
 5. **Metadata in PostgreSQL**:
 
-   * All registries, original repo, revision, local repo, artifact metadata(e.g. file size, hash, type), jobs, etc. stored in Postgres.
+   * All registries, original repo, revision, local repo, model artifact metadata(e.g. file size, hash, type), jobs, etc. stored in Postgres.
 
 6. **Logging & metrics**:
 
@@ -62,7 +62,7 @@
 
    * Endpoints:
 
-     * `/v1/models/*` – manage models, repos, artifacts.
+     * `/v1/models/*` – manage models, repos, model artifacts.
      * `/v1/llm/chat/completions`, `/v1/llm/embeddings`.
      * `/v1/tool/vision/*`, `/v1/tool/video/*`, `/v1/tool/ocr`.
    * Performs basic rate limiting, request validation.
@@ -76,7 +76,7 @@
      * Mapping artifacts to logical models & tasks.
    * Backed by Postgres tables.
 
-3. **Artifact Store + File Server**
+3. **Model Artifact Store + File Server**
 
    * Data path (local or remote):
 
@@ -92,7 +92,7 @@
    * Background tasks:
 
      * Repo sync (list files, metadata).
-     * Artifact download.
+     * Model artifact download.
      * Quantization pipelines (fp16 → gguf, etc.).
      * Export/engine building (ONNX/TensorRT).
    * Uses a job queue (Redis + RQ/Celery).
@@ -146,39 +146,24 @@ Represents `vendor/model_name`, e.g. `Wan-AI/Wan2.1-T2V-1.3B`.
 * `sync_status` – `init | sync_ready | syncing | error | completed`
 * `metadata` (JSONB) – repo-level metadata.
 
-#### `repo_file`
+#### `model_artifact`
 
-Represents a file in the remote repository (e.g. HuggingFace).
+Represents a file in the repository (e.g. `unet/diffusion_pytorch_model.bin`) and its local storage state.
 
 * `id` (PK)
 * `model_repo` (FK → `model_repo.id`)
 * `file_path` – path in the repo (e.g. `unet/diffusion_pytorch_model.bin`)
+* `file_type` – `metadata`, `model`, `tokenizer`, `config`, etc.
 * `size_bytes`
-* `hash_sha256` (nullable) – if known from remote metadata
-* `type` – `metadata`, `model`, `tokenizer`, `config`, etc.
-* `storage_artifact_id` (FK → `model_artifact.id`, nullable) – link to downloaded artifact
+* `hash_sha256` (nullable) – if known from remote metadata. Used for CAS deduplication.
+* `format` - e.g. `safetensors`, `gguf`, `onnx`, `pt`, etc.
+* `precision` - e.g. `fp16`, `q4_k_m`, etc.
+* `storage_uri` – e.g. `file:///data/model-store/blobs/sha256/<hash>`. Shared across artifacts with same hash.
+* `download_status` – `pending | downloading | completed | failed`
 * `created_at`, `updated_at`
-
-#### `model_artifact`
-
-Single physical artifact in the artifact store, deduped by hash.
-
-* `id` (PK)
-* `model_repo` (FK → `model_repo.id`)
-* `filename` - model file name in the repo
-* `path` - model file path in the repo, if reference to other repo's artifact, it will be a symlink or storage uri
-* `format` - e.g. `safetensors`, `gguf`, `onnx`, `pt`, `pb`, etc.
-* `precision` - e.g. `fp16`, `be16`, `fp32`, `int8`, 'int4', 'int2', 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q6_0', 'q6_1', 'q8_0', 'q8_1', 'q2_K', 'q3_K', 'q4_K', 'q5_K', 'q6_K', 'q8_K', 'q2_K_M', 'q3_K_M', 'q4_K_M', 'q5_K_M', 'q6_K_M', 'q8_K_M', 'q2_K_S', 'q3_K_S', 'q4_K_S', 'q5_K_S', 'q6_K_S', 'q8_K_S', 'q2_K_L', 'q3_K_L', 'q4_K_L', 'q5_K_L', 'q6_K_L', 'q8_K_L', 'q2_K_M_L', 'q3_K_M_L', 'q4_K_M_L', 'q5_K_M_L', 'q6_K_M_L', 'q8_K_M_L', etc.
-* `hash_sha256` (unique)
-* `size_bytes`
-* `part_id` - (nullable) e.g. `1-6`, for big model file split.
-* `storage_uri` – e.g. `file:///data/model-store/artifacts/<hash>`, or `s3://bucket/...`.
-* `reference_storage_uri` - (nullable) e.g. `s3://bucket/...`.
-* `created_at`
-* `updated_at`
-* `deleted_at`
-* `sync_status` – `init | sync_ready | syncing | error | completed`
 * `last_accessed_at`
+
+**Dependency reuse**: Multiple `model_artifact` rows (from different repos) can point to the same `storage_uri` if their hashes match.
 
 **Dependency reuse** happens because many model file can point to the same `artifact.id`.
 
@@ -223,12 +208,11 @@ A specific runnable configuration of a logical model (e.g. `fp16`, `q4_k_m`).
 
 Maps a logical part of the model (e.g. `unet`, `vae`) to a specific artifact or repo file.
 
-* `id` (PK)
-* `model_variant_id` (FK → `model_variant.id`)
-* `component_name` – e.g. `unet`, `vae`, `tokenizer`
-* `repo_file_id` (FK → `repo_file.id`, nullable)
-* `artifact_id` (FK → `model_artifact.id`, nullable)
-* `created_at`
+*   `id` (PK)
+*   `model_variant_id` (FK → `model_variant.id`)
+*   `component_name` – e.g. `unet`, `vae`, `tokenizer`
+*   `artifact_id` (FK → `model_artifact.id`, nullable)
+*   `created_at`
 
 
 ---
@@ -321,9 +305,8 @@ POST /v1/models/register
 3. For each model file:
 
    * Insert `model_artifact` row:
-     * those are big model file with packaging format and precision.
-     * `path`, `size`, etc.
-     * Determine `file_type` & `big_binary` via heuristics.
+     * `file_path`, `size`, `hash_sha256` (if known).
+     * Determine `file_type` & `format` via heuristics.
 
 
 4. Parse metadata and fill in:
@@ -349,18 +332,17 @@ Whenever you need a big file (e.g. user wants to run `Wan2.1 T2V`):
    * If variant is not yet created, create `model_variant` with `status = "preparing"` and enqueue `quantize`/`download` jobs.
 2. For each required **artifact**:
 
-   * Find `model_artifact` row:
-     Looking for existing `model_artifact` with same `path` and `hash_sha256`. If found, reuse it.
+     * Find `model_artifact` row:
+       Looking for existing `model_artifact` with same `file_path` in this repo.
 
-     If not found, create a new `model_artifact` row.
+     * If `storage_uri` is null (not downloaded):
+       1. Check if another artifact has same `hash_sha256` and `storage_uri` != null. If so, copy `storage_uri` (dedupe).
+       2. Else, enqueue `artifact_download` job.
 
-     1. Enqueue an `artifact_download` job with:
-
-        * vendor, repo, revision, `path`.
-     2. `artifact_download` job:
-
+     * `artifact_download` job:
         * Download file.
         * Compute SHA256.
+        * Update `storage_uri` and `download_status`.
 
 
 ### 5.2 Dependency reuse logic
@@ -376,7 +358,7 @@ Two reuse modes:
    * Some repos may *reference* base models in metadata:
 
      * Example: a LoRA repo referencing `"meta-llama/Meta-Llama-3-8B"`.
-   * Registry uses metadata to create `logical_model_component` entries that point at **other repo’s `repo_file`** instead of duplicating.
+   * Registry uses metadata to create `logical_model_component` entries that point at **other repo’s `model_artifact`** instead of duplicating.
    * When you need that component, you just ensure the base repo’s file is downloaded (dedupe still by hash).
 
 ---
@@ -493,7 +475,7 @@ Architecture stays the same; only execution environment changes.
 
 1. Implement ORM models for:
 
-   * `model_vendor`, `model_repo`, `model_repo_revision`, `repo_file`, `artifact`, `logical_model`, `logical_model_component`, `model_variant`, `model_variant_component`, `job`.
+   * `model_vendor`, `model_repo`, `model_repo_revision`, `model_artifact`, `logical_model`, `logical_model_component`, `model_variant`, `model_variant_component`, `job`.
 2. Expose:
 
    * `POST /v1/models/register`
@@ -504,7 +486,7 @@ Architecture stays the same; only execution environment changes.
 1. Implement job worker + `repo_sync` job:
 
    * List files from HF.
-   * Fill `repo_file`.
+   * Fill `model_artifact` (metadata only).
    * Download metadata files only.
    * Build `logical_model`, `logical_model_component`.
 2. Implement `GET /v1/models/{vendor}/{name}/files` for debugging.
@@ -514,8 +496,8 @@ Architecture stays the same; only execution environment changes.
 1. Implement `artifact_download` job:
 
    * Download big file when needed.
-   * sha256 → `artifact` dedupe.
-   * Link to `repo_file.storage_artifact_id`.
+   * Download big file when needed.
+   * sha256 → `model_artifact` dedupe (update storage_uri).
 2. Optionally: `GET /v1/files/{artifact_id}` to reuse from other projects.
 
 **Phase 4 – LLM runtime integration**
