@@ -1,6 +1,6 @@
 services:
-  postgres:
-    image: postgres:16-alpine
+  infra:
+    build: ./docker/infra
     restart: always
     environment:
       POSTGRES_USER: hub_user
@@ -8,17 +8,80 @@ services:
       POSTGRES_DB: model_hub
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    restart: always
-    ports:
       - "6379:6379"
     volumes:
+      - postgres_data:/var/lib/postgresql/data
       - redis_data:/data
+
+  # SigNoz Stack
+  zookeeper:
+    image: zookeeper:3.9
+    ports:
+      - "2181:2181"
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zookeeper:2888:3888;2181
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3.2.23-alpine
+    ports:
+      - "9001:9000"
+      - "8124:8123"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    depends_on:
+      - zookeeper
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./docker/signoz/clickhouse-config.xml:/etc/clickhouse-server/config.d/cluster.xml
+
+  schema-migrator:
+    image: signoz/signoz-schema-migrator:0.88.10
+    container_name: signoz-schema-migrator
+    depends_on:
+      - clickhouse
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=9000
+      - CLICKHOUSE_CLUSTER=cluster
+    command: [ "--dsn=tcp://clickhouse:9000" ]
+
+  signoz-query-service:
+    image: signoz/query-service:0.45.0
+    command: [ "-config=/root/config/prometheus.yml" ]
+    ports:
+      - "8080:8080"
+    environment:
+      - ClickHouseUrl=tcp://clickhouse:9000
+      - STORAGE=clickhouse
+      - GIGABYTE_INGESTION_LIMIT=10
+    depends_on:
+      - clickhouse
+      - signoz-otel-collector
+    volumes:
+      - ./docker/signoz/data:/var/lib/signoz
+
+  frontend:
+    image: signoz/frontend:0.45.0
+    ports:
+      - "3301:3301"
+    depends_on:
+      - signoz-query-service
+
+  signoz-otel-collector:
+    image: signoz/signoz-otel-collector:0.88.10
+    command: [ "--config=/etc/otel-collector-config.yaml" ]
+    volumes:
+      - ./docker/signoz/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    depends_on:
+      - clickhouse
 
 volumes:
   postgres_data:
   redis_data:
+  clickhouse_data:
